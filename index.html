@@ -1,0 +1,688 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Midnight Stall Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #14110f;
+      --panel: #241f1a;
+      --panel-2: #302820;
+      --line: #5a4a3d;
+      --gold: #f2bd57;
+      --red: #d85035;
+      --green: #79b96b;
+      --blue: #6aa8d8;
+      --text: #f8efe3;
+      --muted: #c8b8a6;
+      --bad: #ff8171;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: radial-gradient(circle at top left, #35241b 0, var(--bg) 46%);
+      color: var(--text);
+      overflow-x: hidden;
+    }
+    button {
+      appearance: none;
+      border: 0;
+      min-height: 44px;
+      padding: 0 16px;
+      border-radius: 8px;
+      background: var(--red);
+      color: white;
+      font-size: 15px;
+      font-weight: 800;
+    }
+    button.secondary { background: #4f4439; }
+    button.good { background: #4e8d45; }
+    button:disabled { opacity: .42; filter: grayscale(1); }
+    .app {
+      width: 100%;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+      overflow: hidden;
+    }
+    .app > * { min-width: 0; }
+    header, .bar, .panel {
+      border: 1px solid var(--line);
+      background: rgba(36, 31, 26, .92);
+      border-radius: 8px;
+    }
+    header {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      padding: 12px;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(26px, 7vw, 44px);
+      line-height: 1;
+      letter-spacing: 0;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .stat {
+      background: var(--panel-2);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 9px 10px;
+      min-height: 54px;
+    }
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 2px;
+    }
+    .stat b {
+      color: var(--gold);
+      font-size: 20px;
+    }
+    .stat.danger b { color: var(--bad); }
+    .bar {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+    }
+    .message {
+      color: var(--muted);
+      line-height: 1.45;
+      min-height: 42px;
+      overflow-wrap: anywhere;
+      word-break: break-all;
+    }
+    .message strong { color: var(--gold); }
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .board-wrap {
+      overflow-x: auto;
+      padding-bottom: 2px;
+      max-width: 100%;
+      min-width: 0;
+    }
+    .board {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(156px, 1fr));
+      gap: 10px;
+      min-width: 820px;
+    }
+    .slot {
+      min-height: 178px;
+      border: 1px solid var(--line);
+      background: rgba(36, 31, 26, .94);
+      border-radius: 8px;
+      padding: 10px;
+      display: grid;
+      align-content: start;
+      gap: 6px;
+      user-select: none;
+      touch-action: manipulation;
+      position: relative;
+    }
+    .slot.empty {
+      border-style: dashed;
+      color: var(--muted);
+      place-items: center;
+      text-align: center;
+    }
+    .slot.selected { outline: 3px solid var(--gold); }
+    .slot.synergy {
+      border-color: var(--green);
+      box-shadow: 0 0 0 2px rgba(121, 185, 107, .22) inset;
+    }
+    .slot-score {
+      position: absolute;
+      right: 8px;
+      top: 8px;
+      min-width: 34px;
+      text-align: center;
+      color: #15110f;
+      background: var(--gold);
+      border-radius: 999px;
+      font-weight: 900;
+      padding: 4px 6px;
+    }
+    .card-name {
+      padding-right: 40px;
+      font-weight: 900;
+      font-size: 16px;
+      line-height: 1.1;
+    }
+    .tag, .badge {
+      width: fit-content;
+      color: var(--text);
+      background: #493d32;
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .badge.preview { background: #594a24; color: var(--gold); }
+    .badge.result { background: #26502a; color: #bdf0b4; }
+    .rule, .mini {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.32;
+    }
+    .gain { color: var(--green); font-weight: 900; }
+    .panel {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .panel h2 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .log {
+      display: grid;
+      gap: 8px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .log-row {
+      border-left: 3px solid var(--line);
+      padding-left: 8px;
+    }
+    .log-row.win { border-color: var(--green); }
+    .log-row.warn { border-color: var(--gold); }
+    .draft {
+      display: none;
+      gap: 10px;
+      border-color: var(--gold);
+    }
+    .draft.open { display: grid; }
+    .draft-list {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .choice {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel-2);
+      padding: 10px;
+      text-align: left;
+      min-height: 132px;
+      color: var(--text);
+    }
+    .choice .rarity {
+      color: var(--blue);
+      font-size: 12px;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .deck-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .deck-chip {
+      border: 1px solid var(--line);
+      background: #2f2821;
+      border-radius: 999px;
+      padding: 5px 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    @media (min-width: 900px) {
+      header {
+        grid-template-columns: minmax(0, 1fr) 700px;
+        align-items: center;
+      }
+      .stats { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      .bar { grid-template-columns: minmax(0, 1fr) 360px; align-items: center; }
+    }
+    @media (max-width: 760px) {
+      .app { padding: 10px; gap: 10px; }
+      header, .bar, .panel { overflow: hidden; }
+      .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stat { min-height: 46px; padding: 7px 9px; }
+      .stat b { font-size: 18px; }
+      .actions { grid-template-columns: 1fr; }
+      .draft-list { grid-template-columns: 1fr; }
+      .board { grid-template-columns: repeat(5, 156px); min-width: 820px; }
+      .slot { min-height: 168px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>深夜の屋台</h1>
+        <div class="subtitle">食材を引き、並びを入れ替え、シナジーで稼いで家賃を払うローグライク試作</div>
+      </div>
+      <div class="stats">
+        <div class="stat"><span>所持金</span><b id="coins">0</b></div>
+        <div class="stat"><span>売上予測</span><b id="score">0</b></div>
+        <div class="stat"><span>家賃</span><b id="rent">0</b></div>
+        <div class="stat"><span>期限</span><b id="due">0</b></div>
+        <div class="stat" id="shortageBox"><span>不足</span><b id="shortage">0</b></div>
+        <div class="stat" id="paceBox"><span>必要平均</span><b id="pace">0</b></div>
+      </div>
+    </header>
+
+    <section class="bar">
+      <div class="message" id="message"></div>
+      <div class="actions">
+        <button id="draw">仕込み</button>
+        <button id="serve" class="good">提供</button>
+        <button id="newGame" class="secondary">最初から</button>
+      </div>
+    </section>
+
+    <div class="board-wrap">
+      <section class="board" id="board"></section>
+    </div>
+
+    <section class="panel draft" id="draft">
+      <h2>営業後に追加する食材</h2>
+      <div class="message">次の仕込みへ進むには、食材を1つ追加するか、追加せず現金を受け取ってください。</div>
+      <div class="draft-list" id="draftList"></div>
+      <button id="skip" class="secondary">追加せず 2 coins 受け取る</button>
+    </section>
+
+    <section class="panel">
+      <h2>シナジー内訳</h2>
+      <div class="log" id="log"></div>
+    </section>
+
+    <section class="panel">
+      <h2>デッキ</h2>
+      <div class="deck-list" id="deck"></div>
+    </section>
+  </main>
+
+  <script>
+    const PHASE = {
+      READY: "ready",
+      ARRANGE: "arrange",
+      DRAFT: "draft",
+      GAME_OVER: "gameover"
+    };
+
+    const CARD_POOL = [
+      { id: "tomato", name: "Tomato", tag: "vegetable", base: 2, rarity: "common", weight: 10, bonus: { noodle: 4, sauce: 2 }, rule: "隣が noodle なら +4、sauce なら +2" },
+      { id: "noodles", name: "Noodles", tag: "noodle", base: 3, rarity: "common", weight: 10, bonus: { sauce: 4, protein: 2, soup: 5 }, rule: "隣が sauce なら +4、protein なら +2、soup なら +5" },
+      { id: "miso", name: "Miso", tag: "sauce", base: 4, rarity: "common", weight: 9, bonus: { noodle: 3, vegetable: 2 }, rule: "隣が noodle なら +3、vegetable なら +2" },
+      { id: "scallion", name: "Scallion", tag: "vegetable", base: 1, rarity: "common", weight: 9, bonus: { protein: 4, sauce: 2 }, rule: "隣が protein なら +4、sauce なら +2" },
+      { id: "egg", name: "Soft Egg", tag: "protein", base: 4, rarity: "uncommon", weight: 6, bonus: { noodle: 2, sauce: 2 }, rule: "隣が noodle または sauce なら +2" },
+      { id: "seaweed", name: "Seaweed", tag: "topping", base: 2, rarity: "uncommon", weight: 6, bonus: { noodle: 3, sauce: 3 }, rule: "隣が noodle または sauce なら +3" },
+      { id: "gyoza", name: "Gyoza", tag: "side", base: 5, rarity: "uncommon", weight: 5, bonus: { sauce: 3, vegetable: 2 }, rule: "隣が sauce なら +3、vegetable なら +2" },
+      { id: "broth", name: "Rich Broth", tag: "soup", base: 2, rarity: "rare", weight: 3, bonus: { noodle: 5, topping: 2 }, rule: "隣が noodle なら +5、topping なら +2" },
+      { id: "pork", name: "Braised Pork", tag: "protein", base: 7, rarity: "rare", weight: 3, bonus: { sauce: 5 }, rule: "隣が sauce なら +5。高得点だが相手を選ぶ" },
+      { id: "charcoal", name: "Charcoal Grill", tag: "tool", base: 0, rarity: "rare", weight: 2, bonus: { protein: 3 }, global: "protein_heat", rule: "隣の protein に +3。さらに盤面の protein 全てに +2" },
+      { id: "lantern", name: "Red Lantern", tag: "tool", base: 1, rarity: "rare", weight: 2, bonus: { side: 3 }, global: "rent_night", rule: "家賃期限が残り1ターンなら自身に +8" }
+    ];
+    const BY_ID = Object.fromEntries(CARD_POOL.map(card => [card.id, card]));
+    const STARTER_DECK = [
+      "tomato", "tomato", "noodles", "noodles", "miso", "miso",
+      "scallion", "scallion", "egg", "seaweed", "gyoza", "broth"
+    ];
+
+    const state = {
+      coins: 5,
+      lastServedScore: 0,
+      spin: 0,
+      rent: 72,
+      dueIn: 3,
+      rentStep: 1,
+      deck: [],
+      slots: Array(5).fill(null),
+      selectedSlot: null,
+      phase: PHASE.READY,
+      draft: [],
+      message: "",
+      lastReport: null,
+      gameOver: false
+    };
+
+    const boardEl = document.getElementById("board");
+    const boardWrapEl = document.querySelector(".board-wrap");
+    const logEl = document.getElementById("log");
+    const deckEl = document.getElementById("deck");
+    const draftEl = document.getElementById("draft");
+    const draftListEl = document.getElementById("draftList");
+    const drawButton = document.getElementById("draw");
+    const serveButton = document.getElementById("serve");
+
+    function startGame() {
+      state.coins = 5;
+      state.lastServedScore = 0;
+      state.spin = 0;
+      state.rent = 72;
+      state.dueIn = 3;
+      state.rentStep = 1;
+      state.deck = STARTER_DECK.slice();
+      state.slots = Array(5).fill(null);
+      state.selectedSlot = null;
+      state.phase = PHASE.READY;
+      state.draft = [];
+      state.lastReport = null;
+      state.gameOver = false;
+      state.message = "仕込みで5枚引きます。家賃までの不足と必要平均を見ながら、シナジーを狙ってください。";
+      render();
+      resetBoardScroll();
+    }
+
+    function resetBoardScroll() {
+      if (boardWrapEl) boardWrapEl.scrollLeft = 0;
+    }
+
+    function weightedChoice(pool) {
+      const total = pool.reduce((sum, card) => sum + card.weight, 0);
+      let roll = Math.random() * total;
+      for (const card of pool) {
+        roll -= card.weight;
+        if (roll <= 0) return card;
+      }
+      return pool[pool.length - 1];
+    }
+
+    function drawSlots() {
+      if (state.gameOver || state.phase === PHASE.DRAFT) return;
+      const bag = state.deck.slice();
+      state.slots = [];
+      for (let i = 0; i < 5; i += 1) {
+        if (bag.length === 0) bag.push(...state.deck);
+        const index = Math.floor(Math.random() * bag.length);
+        state.slots.push(BY_ID[bag.splice(index, 1)[0]]);
+      }
+      state.phase = PHASE.ARRANGE;
+      state.selectedSlot = null;
+      state.lastServedScore = 0;
+      state.lastReport = null;
+      state.message = "提供前の予測を表示中。カードを2枚タップすると入れ替えられます。スマホでは横にスクロールして5スロットを確認できます。";
+      render();
+      resetBoardScroll();
+    }
+
+    function swapSlot(index) {
+      if (state.phase !== PHASE.ARRANGE) return;
+      if (state.selectedSlot === null) {
+        state.selectedSlot = index;
+        state.message = `${state.slots[index].name} を選択中。入れ替え先のスロットをタップしてください。`;
+      } else if (state.selectedSlot === index) {
+        state.selectedSlot = null;
+        state.message = "選択を解除しました。カードを2枚タップすると入れ替えられます。";
+      } else {
+        const from = state.selectedSlot;
+        const tmp = state.slots[from];
+        state.slots[from] = state.slots[index];
+        state.slots[index] = tmp;
+        state.selectedSlot = null;
+        state.message = "入れ替えました。予測スコアとシナジー内訳を確認して提供してください。";
+      }
+      render();
+    }
+
+    function calculateBoard() {
+      const report = { total: 0, rows: [] };
+      const charcoalCount = state.slots.filter(card => card && card.global === "protein_heat").length;
+
+      state.slots.forEach((card, index) => {
+        if (!card) return;
+        const neighbors = [
+          { side: "左", card: state.slots[index - 1] },
+          { side: "右", card: state.slots[index + 1] }
+        ].filter(entry => entry.card);
+
+        let synergy = 0;
+        const matches = [];
+        for (const entry of neighbors) {
+          const gain = card.bonus[entry.card.tag] || 0;
+          if (gain > 0) {
+            synergy += gain;
+            matches.push({ side: entry.side, name: entry.card.name, tag: entry.card.tag, gain });
+          }
+        }
+
+        let globalGain = 0;
+        const globalMatches = [];
+        if (charcoalCount > 0 && card.tag === "protein") {
+          globalGain += charcoalCount * 2;
+          globalMatches.push(`Charcoal Grill が protein を加熱 +${charcoalCount * 2}`);
+        }
+        if (card.global === "rent_night" && state.dueIn === 1) {
+          globalGain += 8;
+          globalMatches.push("家賃前夜の明かり +8");
+        }
+
+        const score = card.base + synergy + globalGain;
+        report.total += score;
+        report.rows.push({ index, card, base: card.base, synergy, globalGain, score, matches, globalMatches });
+      });
+
+      return report;
+    }
+
+    function serve() {
+      if (state.gameOver || state.phase !== PHASE.ARRANGE) return;
+
+      const report = calculateBoard();
+      state.lastReport = report;
+      state.lastServedScore = report.total;
+      state.coins += report.total;
+      state.spin += 1;
+      state.dueIn -= 1;
+
+      const events = [`売上 <strong>${report.total}</strong> coins を獲得。`];
+      if (state.dueIn <= 0) {
+        if (state.coins >= state.rent) {
+          state.coins -= state.rent;
+          events.push(`家賃 <strong>${state.rent}</strong> coins を支払い。`);
+          state.rentStep += 1;
+          state.rent = Math.round(state.rent * 1.55 + 12);
+          state.dueIn = Math.min(4 + Math.floor(state.rentStep / 2), 6);
+          events.push(`次の家賃は <strong>${state.rent}</strong> coins、期限は ${state.dueIn} ターン。`);
+        } else {
+          const shortage = state.rent - state.coins;
+          state.gameOver = true;
+          state.phase = PHASE.GAME_OVER;
+          state.message = `家賃が ${shortage} coins 足りません。営業終了です。`;
+          render(events, true);
+          return;
+        }
+      } else {
+        events.push(`家賃期限まで残り <strong>${state.dueIn}</strong> ターン。`);
+      }
+
+      state.phase = PHASE.DRAFT;
+      state.draft = makeDraft();
+      state.message = `${events.join(" ")} 下の候補から次の食材を選んでください。`;
+      render(events, true);
+      setTimeout(() => draftEl.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    }
+
+    function makeDraft() {
+      const choices = [];
+      const target = Math.min(3, new Set(CARD_POOL.map(card => card.id)).size);
+      while (choices.length < target) {
+        const card = weightedChoice(CARD_POOL);
+        if (!choices.some(choice => choice.id === card.id)) choices.push(card);
+      }
+      return choices;
+    }
+
+    function chooseDraft(cardId) {
+      if (state.phase !== PHASE.DRAFT || !BY_ID[cardId]) return;
+      if (!state.draft.some(card => card.id === cardId)) return;
+      state.deck.push(cardId);
+      state.phase = PHASE.READY;
+      state.draft = [];
+      state.slots = Array(5).fill(null);
+      state.lastReport = null;
+      state.lastServedScore = 0;
+      state.message = `${BY_ID[cardId].name} をデッキに追加しました。次の仕込みに進めます。`;
+      render();
+      resetBoardScroll();
+    }
+
+    function skipDraft() {
+      if (state.phase !== PHASE.DRAFT) return;
+      state.coins += 2;
+      state.phase = PHASE.READY;
+      state.draft = [];
+      state.slots = Array(5).fill(null);
+      state.lastReport = null;
+      state.lastServedScore = 0;
+      state.message = "食材追加を見送り、2 coins を受け取りました。次の仕込みに進めます。";
+      render();
+      resetBoardScroll();
+    }
+
+    function cardMarkup(card, row, mode) {
+      const score = row ? row.score : card.base;
+      const hasGain = row && (row.synergy || row.globalGain);
+      const matchText = row && row.matches.length
+        ? `<div class="rule">${row.matches.map(match => `${match.side}:${match.name} +${match.gain}`).join("<br>")}</div>`
+        : "";
+      const globalText = row && row.globalMatches.length
+        ? `<div class="rule">${row.globalMatches.join("<br>")}</div>`
+        : "";
+      const modeLabel = mode === "preview" ? "予測" : mode === "result" ? "結果" : "";
+      return `
+        <div class="slot-score">${score}</div>
+        ${modeLabel ? `<div class="badge ${mode}">${modeLabel}</div>` : ""}
+        <div class="card-name">${card.name}</div>
+        <div class="tag">${card.tag}</div>
+        <div class="mini">基礎 ${card.base}</div>
+        ${hasGain ? `<div class="gain">+${row.synergy + row.globalGain} 発動</div>` : `<div class="mini">発動なし</div>`}
+        ${matchText}
+        ${globalText}
+        <div class="rule">${card.rule}</div>
+      `;
+    }
+
+    function render(events = [], keepResult = false) {
+      const previewReport = state.phase === PHASE.ARRANGE ? calculateBoard() : null;
+      const activeReport = keepResult ? state.lastReport : (state.lastReport || previewReport);
+      const mode = previewReport ? "preview" : state.lastReport ? "result" : "";
+      const displayedScore = previewReport ? previewReport.total : state.lastServedScore;
+      const shortage = Math.max(0, state.rent - state.coins);
+      const pace = Math.ceil(shortage / Math.max(1, state.dueIn));
+
+      document.getElementById("coins").textContent = state.coins;
+      document.getElementById("score").textContent = displayedScore;
+      document.getElementById("rent").textContent = state.rent;
+      document.getElementById("due").textContent = `${state.dueIn}T`;
+      document.getElementById("shortage").textContent = shortage;
+      document.getElementById("pace").textContent = `${pace}/T`;
+      document.getElementById("shortageBox").classList.toggle("danger", shortage > 0 && state.dueIn <= 1);
+      document.getElementById("paceBox").classList.toggle("danger", shortage > 0 && state.dueIn <= 1);
+      document.getElementById("message").innerHTML = state.message;
+
+      drawButton.disabled = state.gameOver || state.phase === PHASE.ARRANGE || state.phase === PHASE.DRAFT;
+      serveButton.disabled = state.gameOver || state.phase !== PHASE.ARRANGE;
+
+      const reportRows = activeReport ? activeReport.rows : [];
+      boardEl.innerHTML = state.slots.map((card, index) => {
+        const row = reportRows.find(entry => entry.index === index);
+        const classes = [
+          "slot",
+          card ? "" : "empty",
+          state.selectedSlot === index ? "selected" : "",
+          row && (row.synergy > 0 || row.globalGain > 0) ? "synergy" : ""
+        ].filter(Boolean).join(" ");
+        const body = card ? cardMarkup(card, row, mode) : `Slot ${index + 1}`;
+        return `<div class="${classes}" data-slot="${index}">${body}</div>`;
+      }).join("");
+
+      if (state.phase === PHASE.DRAFT) {
+        draftEl.classList.add("open");
+        draftListEl.innerHTML = state.draft.map(card => `
+          <button class="choice" data-choice="${card.id}">
+            <div class="rarity">${card.rarity}</div>
+            <div class="card-name">${card.name}</div>
+            <div class="tag">${card.tag}</div>
+            <div class="mini">基礎 ${card.base}</div>
+            <div class="rule">${card.rule}</div>
+          </button>
+        `).join("");
+      } else {
+        draftEl.classList.remove("open");
+        draftListEl.innerHTML = "";
+      }
+
+      const logRows = [];
+      if (events.length) {
+        logRows.push(...events.map(text => `<div class="log-row warn">${text}</div>`));
+      }
+      if (activeReport) {
+        if (previewReport && !state.lastReport) {
+          logRows.push(`<div class="log-row warn">提供前の予測です。入れ替えると即時更新されます。実際の売上と家賃ターン進行は「提供」で確定します。</div>`);
+        }
+        logRows.push(...activeReport.rows.map(row => {
+          const detail = row.matches.map(match => `${match.side}:${match.name}(${match.tag}) +${match.gain}`).concat(row.globalMatches);
+          const cls = detail.length ? "win" : "";
+          return `<div class="log-row ${cls}">
+            <strong>${row.card.name}</strong>: 基礎 ${row.base}
+            ${row.synergy ? ` + 隣接 ${row.synergy}` : ""}
+            ${row.globalGain ? ` + 特殊 ${row.globalGain}` : ""}
+            = <strong>${row.score}</strong><br>
+            ${detail.length ? detail.join(" / ") : "シナジー条件に合う隣接カードなし"}
+          </div>`;
+        }));
+      } else {
+        logRows.push(`<div class="log-row">仕込み後、ここに提供前のシナジー予測が表示されます。</div>`);
+      }
+      logEl.innerHTML = logRows.join("");
+
+      const counts = state.deck.reduce((map, id) => {
+        map[id] = (map[id] || 0) + 1;
+        return map;
+      }, {});
+      deckEl.innerHTML = Object.entries(counts)
+        .sort((a, b) => BY_ID[a[0]].name.localeCompare(BY_ID[b[0]].name))
+        .map(([id, count]) => `<div class="deck-chip">${BY_ID[id].name} x${count}</div>`)
+        .join("");
+    }
+
+    document.addEventListener("click", event => {
+      const slot = event.target.closest("[data-slot]");
+      const choice = event.target.closest("[data-choice]");
+      if (slot) swapSlot(Number(slot.dataset.slot));
+      if (choice) chooseDraft(choice.dataset.choice);
+    });
+    drawButton.addEventListener("click", drawSlots);
+    serveButton.addEventListener("click", serve);
+    document.getElementById("newGame").addEventListener("click", startGame);
+    document.getElementById("skip").addEventListener("click", skipDraft);
+
+    startGame();
+    if (new URLSearchParams(location.search).get("autotest") === "1") {
+      drawSlots();
+      serve();
+      document.body.dataset.testPhase = state.phase;
+      document.body.dataset.testScore = String(state.lastServedScore);
+      document.body.dataset.testDue = String(state.dueIn);
+      document.body.dataset.testStatus =
+        state.phase === PHASE.DRAFT && state.lastServedScore > 0 && state.dueIn === 2 ? "pass" : "fail";
+    }
+  </script>
+</body>
+</html>
