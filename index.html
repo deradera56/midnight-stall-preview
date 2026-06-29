@@ -255,6 +255,7 @@
     }
     .pips {
       display: flex;
+      flex-wrap: wrap;
       gap: 4px;
       min-height: 18px;
       align-items: center;
@@ -271,6 +272,14 @@
     .pip.on {
       background: rgba(120, 188, 107, .22);
       color: #bdf0b4;
+    }
+    .pip.hint {
+      background: rgba(242, 189, 87, .12);
+      color: #e4cfa9;
+    }
+    .pip.wait {
+      background: rgba(255, 255, 255, .06);
+      color: #9f8e7c;
     }
     .score {
       justify-self: end;
@@ -533,6 +542,7 @@
     const BY_ID = Object.fromEntries(CARD_POOL.map(card => [card.id, card]));
     const STARTER_DECK = ["tomato", "tomato", "noodles", "noodles", "miso", "miso", "scallion", "scallion", "egg", "seaweed", "gyoza", "broth"];
     const EMPTY_HINTS = ["仕込で5枚", "2枚タップ入替", "緑はシナジー", "提供で売上", "期限で家賃"];
+    const TAG_LABEL = { vegetable: "野菜", noodle: "麺", sauce: "たれ", protein: "肉卵", topping: "具", side: "一品", soup: "汁", tool: "道具" };
     const state = { coins: 5, lastServedScore: 0, spin: 0, rent: 72, dueIn: 3, rentStep: 1, deck: [], slots: Array(5).fill(null), selectedSlot: null, phase: PHASE.READY, draft: [], message: "", lastReport: null, gameOver: false, lastTouched: null };
     const boardEl = document.getElementById("board");
     const messageEl = document.getElementById("message");
@@ -552,7 +562,7 @@
       return pool[pool.length - 1];
     }
     function drawSlots() {
-      if (state.gameOver || state.phase === PHASE.DRAFT) return;
+      if (state.gameOver || state.phase !== PHASE.READY) return;
       const bag = state.deck.slice();
       state.slots = [];
       for (let i = 0; i < 5; i += 1) {
@@ -560,7 +570,7 @@
         const index = Math.floor(Math.random() * bag.length);
         state.slots.push(BY_ID[bag.splice(index, 1)[0]]);
       }
-      Object.assign(state, { phase: PHASE.ARRANGE, selectedSlot: null, lastServedScore: 0, lastReport: null, message: "2枚タップで入替" });
+      Object.assign(state, { phase: PHASE.ARRANGE, selectedSlot: null, lastServedScore: 0, lastReport: null, message: "2枚タップで入替 / 緑=発動" });
       render();
     }
     function calculateBoard() {
@@ -657,6 +667,12 @@
     }
     function icon(id) { return `<svg><use href="#${id}"></use></svg>`; }
     function cardIcon(card) { return icon(card.icon || "i-star"); }
+    function bonusHint(card) {
+      const pairs = Object.entries(card.bonus).map(([tag, gain]) => `${TAG_LABEL[tag] || tag}+${gain}`);
+      if (card.global === "protein_heat") pairs.push("肉卵全体+2");
+      if (card.global === "rent_night") pairs.push("期限1で+8");
+      return pairs.length ? pairs.join(" ") : "長押しで詳細";
+    }
     function render(keepResult = false) {
       const preview = state.phase === PHASE.ARRANGE ? calculateBoard() : null;
       const active = keepResult ? state.lastReport : (state.lastReport || preview);
@@ -686,11 +702,12 @@
       const slotsHtml = state.slots.map((card, index) => {
         const row = rows.find(entry => entry.index === index);
         const synergy = row && (row.synergy > 0 || row.globalGain > 0);
-        const pips = row ? row.matches.map(match => `<span class="pip on">${match.side}+${match.gain}</span>`).join("") + row.globalMatches.map(text => `<span class="pip on">${text}</span>`).join("") : "";
+        const activePips = row ? row.matches.map(match => `<span class="pip on">${match.side}${TAG_LABEL[match.tag] || ""}+${match.gain}</span>`).join("") + row.globalMatches.map(text => `<span class="pip on">${text}</span>`).join("") : "";
+        const pips = activePips || (card ? `<span class="pip hint">${bonusHint(card)}</span>` : '<span class="pip wait">-</span>');
         const emptyHint = EMPTY_HINTS[index] || "";
         return `<div class="slot ${card ? "" : "empty"} ${state.selectedSlot === index ? "selected" : ""} ${synergy ? "synergy" : ""}" data-slot="${index}">
           <div class="dish ${card ? card.tag : "empty-dish"}">${card ? cardIcon(card) : index + 1}</div>
-          <div class="mini"><div class="name">${card ? card.name : emptyHint}</div><div class="pips">${pips || '<span class="pip">-</span>'}</div></div>
+          <div class="mini"><div class="name">${card ? card.name : emptyHint}</div><div class="pips">${pips}</div></div>
           <div class="score">${row ? row.score : card ? card.base : "-"}</div>
         </div>`;
       }).join("");
@@ -741,7 +758,13 @@
     document.getElementById("detail").addEventListener("click", () => state.lastTouched == null ? document.getElementById("helpOverlay").classList.add("open") : showDetail(state.lastTouched));
     document.getElementById("skip").addEventListener("click", skipDraft);
     startGame();
-    if (new URLSearchParams(location.search).get("autotest") === "1") {
+    const params = new URLSearchParams(location.search);
+    if (params.get("drawtest") === "1") {
+      drawSlots();
+      document.body.dataset.testPhase = state.phase;
+      document.body.dataset.testStatus = state.phase === PHASE.ARRANGE && state.slots.every(Boolean) ? "pass" : "fail";
+    }
+    if (params.get("autotest") === "1") {
       drawSlots();
       serve();
       document.body.dataset.testPhase = state.phase;
