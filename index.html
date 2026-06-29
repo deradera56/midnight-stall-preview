@@ -253,31 +253,27 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .pips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      min-height: 18px;
-      align-items: center;
-    }
-    .pip {
-      border-radius: 999px;
-      background: #493d32;
-      color: var(--muted);
-      font-size: 11px;
+    .slot-tip {
+      min-height: 22px;
+      width: fit-content;
+      max-width: 100%;
+      border-radius: 7px;
+      padding: 5px 7px;
+      background: rgba(242, 189, 87, .14);
+      color: #ead8bb;
+      font-size: 12px;
       line-height: 1;
-      padding: 4px 6px;
-      font-weight: 800;
+      font-weight: 900;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .pip.on {
-      background: rgba(120, 188, 107, .22);
-      color: #bdf0b4;
+    .slot-tip.active {
+      background: rgba(120, 188, 107, .24);
+      color: #c9f5c2;
+      box-shadow: 0 0 0 1px rgba(120, 188, 107, .26) inset;
     }
-    .pip.hint {
-      background: rgba(242, 189, 87, .12);
-      color: #e4cfa9;
-    }
-    .pip.wait {
+    .slot-tip.wait {
       background: rgba(255, 255, 255, .06);
       color: #9f8e7c;
     }
@@ -402,7 +398,7 @@
       .slot { padding: 5px 7px; }
       .dish { width: 32px; height: 32px; }
       .score { font-size: 16px; }
-      .mini .name { display: none; }
+      .mini .name { font-size: 12px; }
     }
     @media (max-width: 380px) {
       .app {
@@ -421,7 +417,7 @@
       .board-guide span { font-size: 11px; }
       .dish { width: 31px; height: 31px; }
       .mini .name { font-size: 12px; }
-      .pip { font-size: 10px; padding: 3px 5px; }
+      .slot-tip { font-size: 11px; padding: 4px 6px; }
       .score { min-width: 36px; font-size: 15px; padding: 5px 6px; }
       .stat b { font-size: 13px; }
       .stat span { font-size: 8px; }
@@ -702,12 +698,13 @@
       const slotsHtml = state.slots.map((card, index) => {
         const row = rows.find(entry => entry.index === index);
         const synergy = row && (row.synergy > 0 || row.globalGain > 0);
-        const activePips = row ? row.matches.map(match => `<span class="pip on">${match.side}${TAG_LABEL[match.tag] || ""}+${match.gain}</span>`).join("") + row.globalMatches.map(text => `<span class="pip on">${text}</span>`).join("") : "";
-        const pips = activePips || (card ? `<span class="pip hint">${bonusHint(card)}</span>` : '<span class="pip wait">-</span>');
+        const activeText = row ? row.matches.map(match => `${match.side}${TAG_LABEL[match.tag] || ""}+${match.gain}`).concat(row.globalMatches).join(" / ") : "";
+        const tipText = activeText || (card ? `相性: ${bonusHint(card)}` : "-");
+        const tipClass = activeText ? "active" : card ? "hint" : "wait";
         const emptyHint = EMPTY_HINTS[index] || "";
         return `<div class="slot ${card ? "" : "empty"} ${state.selectedSlot === index ? "selected" : ""} ${synergy ? "synergy" : ""}" data-slot="${index}">
           <div class="dish ${card ? card.tag : "empty-dish"}">${card ? cardIcon(card) : index + 1}</div>
-          <div class="mini"><div class="name">${card ? card.name : emptyHint}</div><div class="pips">${pips}</div></div>
+          <div class="mini"><div class="name">${card ? card.name : emptyHint}</div><div class="slot-tip ${tipClass}">${tipText}</div></div>
           <div class="score">${row ? row.score : card ? card.base : "-"}</div>
         </div>`;
       }).join("");
