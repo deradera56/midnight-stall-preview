@@ -147,6 +147,40 @@
       display: grid;
       grid-template-rows: repeat(5, minmax(0, 1fr));
       gap: 5px;
+      position: relative;
+    }
+    .board-guide {
+      position: absolute;
+      z-index: 2;
+      left: 72px;
+      right: 58px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: grid;
+      gap: 7px;
+      padding: 12px;
+      border: 1px solid rgba(242, 189, 87, .45);
+      border-radius: 8px;
+      background: rgba(36, 31, 26, .9);
+      box-shadow: 0 12px 34px rgba(0, 0, 0, .28);
+      pointer-events: none;
+    }
+    .board-guide strong {
+      color: var(--gold);
+      font-size: 14px;
+      line-height: 1;
+    }
+    .board-guide span {
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 800;
+    }
+    .board-guide small {
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.35;
+      font-weight: 800;
     }
     .slot {
       min-height: 0;
@@ -174,6 +208,9 @@
     .slot.empty {
       border-style: dashed;
       color: var(--muted);
+    }
+    .board.guide-mode .slot.empty .mini {
+      opacity: .28;
     }
     .slot.selected { outline: 3px solid var(--gold); }
     .slot.synergy {
@@ -370,6 +407,9 @@
       .topbar { grid-template-columns: minmax(0, 1fr) 38px 38px; }
       button { min-height: 40px; }
       .slot { grid-template-columns: 34px minmax(0, 1fr) 38px; gap: 5px; padding: 5px 6px; }
+      .board-guide { left: 62px; right: 50px; padding: 10px; }
+      .board-guide strong { font-size: 13px; }
+      .board-guide span { font-size: 11px; }
       .dish { width: 31px; height: 31px; }
       .mini .name { font-size: 12px; }
       .pip { font-size: 10px; padding: 3px 5px; }
@@ -636,7 +676,14 @@
       document.getElementById("draw").disabled = state.gameOver || state.phase === PHASE.ARRANGE || state.phase === PHASE.DRAFT;
       document.getElementById("serve").disabled = state.gameOver || state.phase !== PHASE.ARRANGE;
       const rows = active ? active.rows : [];
-      boardEl.innerHTML = state.slots.map((card, index) => {
+      const showGuide = state.phase === PHASE.READY && state.slots.every(card => !card);
+      boardEl.classList.toggle("guide-mode", showGuide);
+      const guide = showGuide ? `<div class="board-guide">
+        <strong>まず仕込</strong>
+        <span>5枚引いて、隣同士を組み替える。</span>
+        <small>緑チップ=シナジー / 提供で売上 / 期限0で家賃</small>
+      </div>` : "";
+      const slotsHtml = state.slots.map((card, index) => {
         const row = rows.find(entry => entry.index === index);
         const synergy = row && (row.synergy > 0 || row.globalGain > 0);
         const pips = row ? row.matches.map(match => `<span class="pip on">${match.side}+${match.gain}</span>`).join("") + row.globalMatches.map(text => `<span class="pip on">${text}</span>`).join("") : "";
@@ -647,6 +694,7 @@
           <div class="score">${row ? row.score : card ? card.base : "-"}</div>
         </div>`;
       }).join("");
+      boardEl.innerHTML = guide + slotsHtml;
     }
     function showDetail(index) {
       const card = state.slots[index];
